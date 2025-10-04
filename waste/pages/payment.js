@@ -1,0 +1,110 @@
+// pages/payment.js (The Payment and Escrow Confirmation Page)
+
+import { useRouter } from 'next/router';
+import Head from 'next/head';
+import { useSession } from 'next-auth/react';
+import { useState } from 'react'; // Added for form/state management
+
+export default function PaymentPage() { // <--- CRITICAL: The default export
+  const router = useRouter();
+  // CRITICAL: Read the transactionId from the URL query parameters
+  const { transactionId } = router.query; 
+  const { status } = useSession();
+  
+  // --- STATE MANAGEMENT ---
+  const [submitStatus, setSubmitStatus] = useState({ message: '', loading: false, success: false });
+
+  // Basic Loading/Security Checks
+  if (status === 'loading') return <div className="text-center p-16">Loading...</div>;
+  if (status === 'unauthenticated') {
+    router.push('/login');
+    return null;
+  }
+  
+  if (!transactionId) {
+    return <div className="text-center p-16 text-red-600">Error: No Transaction ID found. Please go back.</div>;
+  }
+
+  // --- Next Step: Logic to call the /pay.js API ---
+  const handleSimulatePayment = async () => {
+    setSubmitStatus({ message: 'Contacting payment gateway...', loading: true, success: false });
+    
+    try {
+        const res = await fetch('/api/transactions/pay', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transactionId: transactionId }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            setSubmitStatus({ 
+                message: `Payment Failed: ${data.message || 'Server error occurred.'}`, 
+                loading: false, 
+                success: false 
+            });
+            return;
+        }
+
+        // --- SUCCESS: Payment Secured ---
+        setSubmitStatus({ 
+            message: 'SUCCESS! Funds secured in escrow. Redirecting to dashboard...', 
+            loading: true, 
+            success: true 
+        });
+        
+        // Final Action: Redirect to transaction history page
+        setTimeout(() => {
+            router.push(`/dashboard/transactions`);
+        }, 2000);
+
+    } catch (error) {
+        setSubmitStatus({ message: 'A network error occurred. Please try again.', loading: false, success: false });
+    }
+  };
+
+  return (
+    <div className="container mx-auto p-8 bg-gray-50">
+      <Head><title>Secure Payment | {transactionId.substring(0, 8)}...</title></Head>
+
+      <div className="bg-white shadow-xl rounded-lg p-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-4">
+            Secure Escrow Funding
+        </h1>
+        
+        <p className="text-sm text-gray-600 mb-6">
+            You are securing payment for Transaction ID: **{transactionId}**.
+        </p>
+
+        {submitStatus.message && (
+            <p className={`p-3 rounded-md text-sm font-medium mb-4 ${submitStatus.success ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                {submitStatus.message}
+            </p>
+        )}
+
+        {/* Payment Gateway Simulation Area */}
+        <div className="p-6 border-2 border-dashed border-blue-400 bg-blue-50 rounded-lg text-center">
+            <p className="text-xl font-semibold text-blue-800">
+                PAYMENT GATEWAY SIMULATION
+            </p>
+            <p className="text-sm text-gray-700 mt-2">
+                Click below to simulate secure transfer of funds to the escrow account.
+            </p>
+        </div>
+        
+        <button 
+            onClick={handleSimulatePayment}
+            disabled={submitStatus.loading}
+            className="mt-6 py-3 px-8 bg-green-600 text-white rounded-md hover:bg-green-700 w-full disabled:bg-gray-400"
+        >
+            {submitStatus.loading ? 'PROCESSING PAYMENT...' : 'SIMULATE PAYMENT SUCCESS (Fund Escrow)'}
+        </button>
+        
+        <p className="text-xs text-gray-500 mt-4 text-center">
+            Funds will be held securely until you confirm material receipt.
+        </p>
+      </div>
+    </div>
+  );
+}

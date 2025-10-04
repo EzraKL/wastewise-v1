@@ -18,8 +18,16 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",  // Set the base for module resolution to the project root
     "paths": {
-      "@/*": ["./*"]
+      // 1. General App Alias (retained from original file)
+      "@/*": ["./*"],
+      
+      // 2. Specific Aliases for Database Components (The Fix)
+      // This allows you to import like: import dbConnect from '@/lib/dbConnect';
+      // instead of using long relative paths like '../../../lib/dbConnect';
+      "@/lib/*": ["lib/*"],
+      "@/models/*": ["models/*"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

@@ -1,0 +1,15 @@
+/* styles/globals.css - NEW v4 CONTENT */
+
+/* 1. Import the new unified Tailwind entry point */
+@import "tailwindcss"; 
+
+/* 2. Optional: Explicitly import preflight (Tailwind's CSS reset) if necessary, but @import "tailwindcss" is often enough. */
+/* @import "tailwindcss/preflight"; */ 
+
+
+/* Add any custom base styles here */
+body {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
