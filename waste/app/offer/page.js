@@ -1,13 +1,15 @@
-// pages/offer.js (FINALIZED VERSION)
+'use client'; // CRITICAL: This page uses client-side hooks (useState, useEffect)
 
-import { useRouter } from 'next/router';
+import { useRouter, useSearchParams } from 'next/navigation'; // *** NEW: Import from next/navigation ***
 import Head from 'next/head';
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from 'react';
 
 export default function OfferPage() {
   const router = useRouter();
-  const { listingId } = router.query; 
+  const searchParams = useSearchParams(); // Use the App Router way to get URL params
+  const listingId = searchParams.get('listingId'); // Get the ID from the URL: ?listingId=...
+  
   const { data: session, status } = useSession();
 
   // --- STATE MANAGEMENT ---
@@ -18,31 +20,36 @@ export default function OfferPage() {
 
   // --- 1. INITIAL FETCH ---
   useEffect(() => {
-    // Security and routing check
+    // 1a. Security and routing check
     if (status === 'unauthenticated') {
-      router.push('/login');
+      router.replace('/login'); // Use replace to prevent back button issues
       return;
     }
     if (!listingId) {
         setPageLoading(false);
-        setSubmitStatus({ message: 'Error: Listing ID is missing.', loading: false, success: false });
+        setSubmitStatus({ message: 'Error: Listing ID is missing in the URL.', loading: false, success: false });
         return;
     }
     
-    // Fetch the specific listing details using the new API
+    // 1b. Fetch the specific listing details
     const fetchListingDetails = async () => {
+      if (status === 'loading') return;
+
       try {
+        // API endpoint: /api/listings/[id]
         const res = await fetch(`/api/listings/${listingId}`); 
         const data = await res.json();
 
         if (!res.ok || !data.success) {
-            router.push('/listings'); // Go back if listing is not found
+            router.replace('/listings'); // Go back if listing is not found
             return;
         }
 
-        setListing(data.data);
+        const fetchedListing = data.data;
+
+        setListing(fetchedListing);
         // Initialize form with full available quantity and calculated price
-        setFormData({ agreedQuantity: data.data.quantity, agreedPrice: data.data.pricePerUnit * data.data.quantity });
+        setFormData({ agreedQuantity: fetchedListing.quantity, agreedPrice: fetchedListing.pricePerUnit * fetchedListing.quantity });
         
       } catch (error) {
         setSubmitStatus({ message: 'Network error fetching listing data.', loading: false, success: false });
@@ -64,9 +71,8 @@ export default function OfferPage() {
             agreedQuantity: qty, 
             agreedPrice: qty * listing.pricePerUnit 
         });
-        setSubmitStatus({ message: '', loading: false, success: false }); // Clear error on valid change
+        setSubmitStatus({ message: '', loading: false, success: false }); 
     } else if (qty > listing?.quantity) {
-        // Prevent exceeding available stock
         setFormData({ ...formData, agreedQuantity: listing.quantity, agreedPrice: listing.quantity * listing.pricePerUnit });
         setSubmitStatus({ message: `Quantity limited to ${listing.quantity} ${listing.unit}.`, loading: false, success: false });
     } else {
@@ -108,7 +114,7 @@ export default function OfferPage() {
         
         // Final Action: Redirect to the payment simulation page
         setTimeout(() => {
-            router.push(`/payment?transactionId=${data.data._id}`);
+            router.push(`/payment?transactionId=${data.data._id}`); // ✅ CORRECT // Use .data._id structure from API response
         }, 1500);
 
     } catch (err) {
@@ -118,17 +124,17 @@ export default function OfferPage() {
 
 
   // --- 3. RENDERING CHECKS ---
-  if (pageLoading) {
+  if (status === 'loading' || pageLoading) {
     return <div className="text-center p-16">Loading Listing Details...</div>;
   }
   
-  // Display error if fetching failed or listing is unavailable
   if (!listing) {
       return <div className="text-center p-16 bg-red-50 text-red-700">Listing unavailable. It may have been sold or removed.</div>;
   }
   
   const totalAmount = formData.agreedPrice.toLocaleString();
-  const commissionRate = listing.materialType === 'PET Plastic' ? 0.08 : 0.05; // Example dynamic commission
+  // Simple commission logic for frontend display
+  const commissionRate = listing.materialType === 'PET Plastic' ? 0.08 : 0.05; 
   const estimatedCommission = (formData.agreedPrice * commissionRate).toLocaleString(); 
 
   return (
